@@ -170,3 +170,42 @@ def update_conversation_title(conversation_id: str, title: str):
 
     conversation["title"] = title
     save_conversation(conversation)
+
+
+def get_file_path(file_id: str) -> str:
+    """Get the file path for a file record."""
+    return os.path.join(DATA_DIR, f"file_{file_id}.json")
+
+
+def save_file(file_id: str, file_data: Dict[str, Any]):
+    """
+    Save a file record to storage.
+
+    Args:
+        file_id: Unique identifier for the file
+        file_data: File data dict to save
+    """
+    ensure_data_dir()
+
+    path = get_file_path(file_id)
+    with open(path, 'w') as f:
+        json.dump(file_data, f, indent=2)
+
+
+def get_file(file_id: str) -> Optional[Dict[str, Any]]:
+    """
+    Load a file record from storage.
+
+    Args:
+        file_id: Unique identifier for the file
+
+    Returns:
+        File data dict or None if not found
+    """
+    path = get_file_path(file_id)
+
+    if not os.path.exists(path):
+        return None
+
+    with open(path, 'r') as f:
+        return json.load(f)

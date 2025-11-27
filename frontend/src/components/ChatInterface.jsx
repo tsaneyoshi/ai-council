@@ -5,12 +5,89 @@ import Stage2 from './Stage2';
 import Stage3 from './Stage3';
 import './ChatInterface.css';
 
+/* Add these styles to ChatInterface.css if not already present, or inline them temporarily */
+const styles = `
+  .input-row {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+    width: 100%;
+  }
+  
+  .attach-button {
+    background: none;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 1.2em;
+    height: 40px; /* Match textarea min-height roughly */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .attach-button:hover {
+    background-color: #f0f0f0;
+  }
+  
+  .attach-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  
+  .file-previews {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 8px;
+    padding: 0 4px;
+  }
+  
+  .file-preview {
+    background-color: #f0f0f0;
+    border-radius: 4px;
+    padding: 4px 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.9em;
+  }
+  
+  .remove-file {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #666;
+    font-weight: bold;
+    padding: 0;
+    font-size: 1.1em;
+    line-height: 1;
+  }
+  
+  .remove-file:hover {
+    color: #ff4444;
+  }
+`;
+
+// Inject styles dynamically for now to avoid switching files too much
+// In a real app, this should go to ChatInterface.css
+if (typeof document !== 'undefined') {
+  const styleSheet = document.createElement("style");
+  styleSheet.innerText = styles;
+  document.head.appendChild(styleSheet);
+}
+
 export default function ChatInterface({
   conversation,
   onSendMessage,
   isLoading,
 }) {
   const [input, setInput] = useState('');
+  const [isComposing, setIsComposing] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -21,17 +98,58 @@ export default function ChatInterface({
     scrollToBottom();
   }, [conversation]);
 
+  const handleFileSelect = async (e) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const files = Array.from(e.target.files);
+      setIsUploading(true);
+
+      try {
+        const uploadedFiles = await Promise.all(files.map(async (file) => {
+          const formData = new FormData();
+          formData.append('file', file);
+
+          const response = await fetch('http://localhost:8001/api/upload', {
+            method: 'POST',
+            body: formData,
+          });
+
+          if (!response.ok) {
+            throw new Error(`Upload failed: ${response.statusText}`);
+          }
+
+          return await response.json();
+        }));
+
+        setSelectedFiles(prev => [...prev, ...uploadedFiles]);
+      } catch (error) {
+        console.error('File upload error:', error);
+        alert('Failed to upload file');
+      } finally {
+        setIsUploading(false);
+        // Reset input so same file can be selected again if needed
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+      }
+    }
+  };
+
+  const removeFile = (fileId) => {
+    setSelectedFiles(prev => prev.filter(f => f.id !== fileId));
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (input.trim() && !isLoading) {
-      onSendMessage(input);
+    if ((input.trim() || selectedFiles.length > 0) && !isLoading && !isUploading) {
+      onSendMessage(input, selectedFiles.map(f => f.id));
       setInput('');
+      setSelectedFiles([]);
     }
   };
 
   const handleKeyDown = (e) => {
-    // Submit on Enter (without Shift)
-    if (e.key === 'Enter' && !e.shiftKey) {
+    // Submit on Enter (without Shift) and ensure not in IME composition
+    if (e.key === 'Enter' && !e.shiftKey && !isComposing && !e.nativeEvent.isComposing) {
       e.preventDefault();
       handleSubmit(e);
     }
@@ -122,22 +240,60 @@ export default function ChatInterface({
 
       {conversation.messages.length === 0 && (
         <form className="input-form" onSubmit={handleSubmit}>
-          <textarea
-            className="message-input"
-            placeholder="Ask your question... (Shift+Enter for new line, Enter to send)"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            disabled={isLoading}
-            rows={3}
-          />
-          <button
-            type="submit"
-            className="send-button"
-            disabled={!input.trim() || isLoading}
-          >
-            Send
-          </button>
+          {selectedFiles.length > 0 && (
+            <div className="file-previews">
+              {selectedFiles.map(file => (
+                <div key={file.id} className="file-preview">
+                  <span className="file-name">{file.filename}</span>
+                  <button
+                    type="button"
+                    className="remove-file"
+                    onClick={() => removeFile(file.id)}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="input-row">
+            <input
+              type="file"
+              multiple
+              ref={fileInputRef}
+              onChange={handleFileSelect}
+              style={{ display: 'none' }}
+              accept=".txt,.csv,.png,.jpg,.jpeg,.py,.pdf,.docx,.xml,.pptx"
+            />
+            <button
+              type="button"
+              className="attach-button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isLoading || isUploading}
+              title="Attach files"
+            >
+              📎
+            </button>
+            <textarea
+              className="message-input"
+              placeholder="Ask your question... (Shift+Enter for new line, Enter to send)"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onCompositionStart={() => setIsComposing(true)}
+              onCompositionEnd={() => setIsComposing(false)}
+              disabled={isLoading || isUploading}
+              rows={3}
+            />
+            <button
+              type="submit"
+              className="send-button"
+              disabled={(!input.trim() && selectedFiles.length === 0) || isLoading || isUploading}
+            >
+              {isUploading ? 'Uploading...' : 'Send'}
+            </button>
+          </div>
         </form>
       )}
     </div>

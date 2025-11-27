@@ -1,15 +1,16 @@
 """FastAPI backend for LLM Council."""
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import uuid
 import json
 import asyncio
 
 from . import storage
+from . import files
 from .council import run_full_council, generate_conversation_title, stage1_collect_responses, stage2_collect_rankings, stage3_synthesize_final, calculate_aggregate_rankings
 
 app = FastAPI(title="LLM Council API")
@@ -32,6 +33,7 @@ class CreateConversationRequest(BaseModel):
 class SendMessageRequest(BaseModel):
     """Request to send a message in a conversation."""
     content: str
+    file_ids: Optional[List[str]] = None
 
 
 class ConversationMetadata(BaseModel):
@@ -70,6 +72,25 @@ async def create_conversation(request: CreateConversationRequest):
     return conversation
 
 
+@app.post("/api/upload")
+async def upload_file(file: UploadFile = File(...)):
+    """Upload a file and extract its text content."""
+    # Extract text from file
+    text_content = await files.extract_text_from_file(file)
+    
+    # Create a simple file record (in memory or storage)
+    file_id = str(uuid.uuid4())
+    file_data = {
+        "id": file_id,
+        "filename": file.filename,
+        "content": text_content,
+        "type": file.content_type
+    }
+    storage.save_file(file_id, file_data)
+    
+    return {"id": file_id, "filename": file.filename, "preview": text_content[:100] + "..." if len(text_content) > 100 else text_content}
+
+
 @app.get("/api/conversations/{conversation_id}", response_model=Conversation)
 async def get_conversation(conversation_id: str):
     """Get a specific conversation with all its messages."""
@@ -93,17 +114,29 @@ async def send_message(conversation_id: str, request: SendMessageRequest):
     # Check if this is the first message
     is_first_message = len(conversation["messages"]) == 0
 
+    # Process files if any
+    full_content = request.content
+    if request.file_ids:
+        file_contexts = []
+        for file_id in request.file_ids:
+            file_data = storage.get_file(file_id)
+            if file_data:
+                file_contexts.append(f"--- File: {file_data['filename']} ---\n{file_data['content']}\n--- End of File ---")
+        
+        if file_contexts:
+            full_content = f"{request.content}\n\n" + "\n\n".join(file_contexts)
+
     # Add user message
-    storage.add_user_message(conversation_id, request.content)
+    storage.add_user_message(conversation_id, full_content)
 
     # If this is the first message, generate a title
     if is_first_message:
-        title = await generate_conversation_title(request.content)
+        title = await generate_conversation_title(request.content) # Use original content for title
         storage.update_conversation_title(conversation_id, title)
 
     # Run the 3-stage council process
     stage1_results, stage2_results, stage3_result, metadata = await run_full_council(
-        request.content
+        full_content
     )
 
     # Add assistant message with all stages
@@ -139,28 +172,40 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest)
 
     async def event_generator():
         try:
+            # Process files if any
+            full_content = request.content
+            if request.file_ids:
+                file_contexts = []
+                for file_id in request.file_ids:
+                    file_data = storage.get_file(file_id)
+                    if file_data:
+                        file_contexts.append(f"--- File: {file_data['filename']} ---\n{file_data['content']}\n--- End of File ---")
+                
+                if file_contexts:
+                    full_content = f"{request.content}\n\n" + "\n\n".join(file_contexts)
+
             # Add user message
-            storage.add_user_message(conversation_id, request.content)
+            storage.add_user_message(conversation_id, full_content)
 
             # Start title generation in parallel (don't await yet)
             title_task = None
             if is_first_message:
-                title_task = asyncio.create_task(generate_conversation_title(request.content))
+                title_task = asyncio.create_task(generate_conversation_title(request.content)) # Use original content for title
 
             # Stage 1: Collect responses
             yield f"data: {json.dumps({'type': 'stage1_start'})}\n\n"
-            stage1_results = await stage1_collect_responses(request.content)
+            stage1_results = await stage1_collect_responses(full_content)
             yield f"data: {json.dumps({'type': 'stage1_complete', 'data': stage1_results})}\n\n"
 
             # Stage 2: Collect rankings
             yield f"data: {json.dumps({'type': 'stage2_start'})}\n\n"
-            stage2_results, label_to_model = await stage2_collect_rankings(request.content, stage1_results)
+            stage2_results, label_to_model = await stage2_collect_rankings(full_content, stage1_results)
             aggregate_rankings = calculate_aggregate_rankings(stage2_results, label_to_model)
             yield f"data: {json.dumps({'type': 'stage2_complete', 'data': stage2_results, 'metadata': {'label_to_model': label_to_model, 'aggregate_rankings': aggregate_rankings}})}\n\n"
 
             # Stage 3: Synthesize final answer
             yield f"data: {json.dumps({'type': 'stage3_start'})}\n\n"
-            stage3_result = await stage3_synthesize_final(request.content, stage1_results, stage2_results)
+            stage3_result = await stage3_synthesize_final(full_content, stage1_results, stage2_results)
             yield f"data: {json.dumps({'type': 'stage3_complete', 'data': stage3_result})}\n\n"
 
             # Wait for title generation if it was started
