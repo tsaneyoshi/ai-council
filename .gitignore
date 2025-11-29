@@ -23,3 +23,9 @@ frontend/.vite/
 # Test files
 test_upload.txt
 *.pdf
+
+# OS files
+.DS_Store
+
+# Logs
+*.log
