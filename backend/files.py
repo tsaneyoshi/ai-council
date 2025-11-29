@@ -92,11 +92,10 @@ async def process_file(file: UploadFile) -> Dict[str, Any]:
                     print(f"DEBUG: PDF has low text content ({len(text_content.strip())} chars). Converting to images for Vision.")
                     images = convert_from_bytes(content)
                     
-                    # Limit to first 5 pages to avoid huge payloads for now
-                    max_pages = 5
+                    # Process all pages
                     mixed_content = []
                     
-                    for i, image in enumerate(images[:max_pages]):
+                    for i, image in enumerate(images):
                         # Convert PIL image to base64
                         buffered = io.BytesIO()
                         image.save(buffered, format="JPEG")
@@ -107,12 +106,6 @@ async def process_file(file: UploadFile) -> Dict[str, Any]:
                             "image_url": {
                                 "url": f"data:image/jpeg;base64,{img_str}"
                             }
-                        })
-                    
-                    if len(images) > max_pages:
-                        mixed_content.append({
-                            "type": "text",
-                            "text": f"\n[Note: PDF truncated. Showing first {max_pages} of {len(images)} pages.]"
                         })
                         
                     result["type"] = "mixed"
