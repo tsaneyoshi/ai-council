@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import ChatInterface from './components/ChatInterface';
+import SettingsModal from './components/SettingsModal';
 import { api } from './api';
 import './App.css';
 
@@ -9,10 +10,13 @@ function App() {
   const [currentConversationId, setCurrentConversationId] = useState(null);
   const [currentConversation, setCurrentConversation] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [settings, setSettings] = useState(null);
 
-  // Load conversations on mount
+  // Load conversations and settings on mount
   useEffect(() => {
     loadConversations();
+    loadSettings();
   }, []);
 
   // Load conversation details when selected
@@ -23,8 +27,10 @@ function App() {
   }, [currentConversationId]);
 
   const loadConversations = async () => {
+    console.log('Loading conversations...');
     try {
       const convs = await api.listConversations();
+      console.log('Loaded conversations:', convs);
       setConversations(convs);
     } catch (error) {
       console.error('Failed to load conversations:', error);
@@ -55,6 +61,55 @@ function App() {
 
   const handleSelectConversation = (id) => {
     setCurrentConversationId(id);
+  };
+
+  const handleDeleteConversation = async (id, e) => {
+    e.stopPropagation(); // Prevent selection when deleting
+    // if (!window.confirm('Are you sure you want to delete this conversation?')) return;
+
+    try {
+      await api.deleteConversation(id);
+      setConversations(conversations.filter(c => c.id !== id));
+      if (currentConversationId === id) {
+        setCurrentConversationId(null);
+        setCurrentConversation(null);
+      }
+    } catch (error) {
+      console.error('Failed to delete conversation:', error);
+    }
+  };
+
+  const handleRenameConversation = async (id, newTitle) => {
+    try {
+      await api.updateConversationTitle(id, newTitle);
+      setConversations(conversations.map(c =>
+        c.id === id ? { ...c, title: newTitle } : c
+      ));
+      if (currentConversationId === id) {
+        setCurrentConversation(prev => prev ? { ...prev, title: newTitle } : null);
+      }
+    } catch (error) {
+      console.error('Failed to rename conversation:', error);
+    }
+  };
+
+  const loadSettings = async () => {
+    try {
+      const s = await api.getSettings();
+      setSettings(s);
+    } catch (error) {
+      console.error('Failed to load settings:', error);
+    }
+  };
+
+  const handleSaveSettings = async (newSettings) => {
+    try {
+      const updated = await api.updateSettings(newSettings);
+      setSettings(updated);
+    } catch (error) {
+      console.error('Failed to save settings:', error);
+      alert('Failed to save settings');
+    }
   };
 
   const handleSendMessage = async (content, fileIds = []) => {
@@ -105,7 +160,7 @@ function App() {
             setCurrentConversation((prev) => {
               const messages = [...prev.messages];
               const lastMsg = messages[messages.length - 1];
-              lastMsg.stage1 = event.data;
+              lastMsg.stage1 = event.results;
               lastMsg.loading.stage1 = false;
               return { ...prev, messages };
             });
@@ -124,8 +179,11 @@ function App() {
             setCurrentConversation((prev) => {
               const messages = [...prev.messages];
               const lastMsg = messages[messages.length - 1];
-              lastMsg.stage2 = event.data;
-              lastMsg.metadata = event.metadata;
+              lastMsg.stage2 = event.results;
+              lastMsg.metadata = {
+                ...lastMsg.metadata,
+                aggregate_rankings: event.aggregate
+              };
               lastMsg.loading.stage2 = false;
               return { ...prev, messages };
             });
@@ -141,21 +199,24 @@ function App() {
             break;
 
           case 'stage3_complete':
+            console.log('Event: stage3_complete');
             setCurrentConversation((prev) => {
               const messages = [...prev.messages];
               const lastMsg = messages[messages.length - 1];
-              lastMsg.stage3 = event.data;
+              lastMsg.stage3 = event.result;
               lastMsg.loading.stage3 = false;
               return { ...prev, messages };
             });
             break;
 
           case 'title_complete':
+            console.log('Event: title_complete');
             // Reload conversations to get updated title
             loadConversations();
             break;
 
           case 'complete':
+            console.log('Event: complete');
             // Stream complete, reload conversations list
             loadConversations();
             setIsLoading(false);
@@ -188,11 +249,20 @@ function App() {
         currentConversationId={currentConversationId}
         onSelectConversation={handleSelectConversation}
         onNewConversation={handleNewConversation}
+        onDeleteConversation={handleDeleteConversation}
+        onRenameConversation={handleRenameConversation}
+        onOpenSettings={() => setIsSettingsOpen(true)}
       />
       <ChatInterface
         conversation={currentConversation}
         onSendMessage={handleSendMessage}
         isLoading={isLoading}
+      />
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        settings={settings}
+        onSave={handleSaveSettings}
       />
     </div>
   );

@@ -55,6 +55,10 @@
   border-radius: 6px;
   cursor: pointer;
   transition: background 0.2s;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
 }
 
 .conversation-item:hover {
@@ -66,13 +70,96 @@
   border: 1px solid #4a90e2;
 }
 
+.conversation-content {
+  flex: 1;
+  min-width: 0;
+  /* Allow text truncation */
+}
+
 .conversation-title {
   color: #333;
   font-size: 14px;
   margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .conversation-meta {
   color: #999;
   font-size: 12px;
+}
+
+.sidebar-footer {
+  padding: 16px;
+  border-top: 1px solid #e0e0e0;
+}
+
+.settings-btn {
+  width: 100%;
+  padding: 10px;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  color: #666;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: background 0.2s;
+}
+
+.settings-btn:hover {
+  background: #f5f5f5;
+  color: #333;
+}
+
+.conversation-actions {
+  display: flex;
+  gap: 4px;
+  margin-left: 8px;
+}
+
+/* .conversation-item:hover .conversation-actions {
+  display: flex;
+} */
+
+.action-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  font-size: 14px;
+  color: #666;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+}
+
+.action-btn:hover {
+  background-color: #e0e0e0;
+  color: #333;
+}
+
+.delete-btn:hover {
+  color: #ff4444;
+  background-color: #ffe0e0;
+}
+
+.conversation-edit {
+  width: 100%;
+}
+
+.conversation-edit input {
+  width: 100%;
+  padding: 4px 8px;
+  border: 1px solid #4a90e2;
+  border-radius: 4px;
+  font-size: 14px;
+  outline: none;
 }

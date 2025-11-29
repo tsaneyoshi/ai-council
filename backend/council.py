@@ -2,23 +2,24 @@
 
 from typing import List, Dict, Any, Tuple
 from .openrouter import query_models_parallel, query_model
-from .config import COUNCIL_MODELS, CHAIRMAN_MODEL
+from .settings import get_settings
 
 
-async def stage1_collect_responses(user_query: str) -> List[Dict[str, Any]]:
+async def stage1_collect_responses(user_message_content: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """
     Stage 1: Collect individual responses from all council models.
 
     Args:
-        user_query: The user's question
+        user_message_content: The user's message content (text + images)
 
     Returns:
         List of dicts with 'model' and 'response' keys
     """
-    messages = [{"role": "user", "content": user_query}]
+    messages = [{"role": "user", "content": user_message_content}]
+    settings = get_settings()
 
     # Query all models in parallel
-    responses = await query_models_parallel(COUNCIL_MODELS, messages)
+    responses = await query_models_parallel(settings.council_models, messages)
 
     # Format results
     stage1_results = []
@@ -33,14 +34,14 @@ async def stage1_collect_responses(user_query: str) -> List[Dict[str, Any]]:
 
 
 async def stage2_collect_rankings(
-    user_query: str,
+    user_message_content: List[Dict[str, Any]],
     stage1_results: List[Dict[str, Any]]
 ) -> Tuple[List[Dict[str, Any]], Dict[str, str]]:
     """
     Stage 2: Each model ranks the anonymized responses.
 
     Args:
-        user_query: The original user query
+        user_message_content: The original user message content
         stage1_results: Results from Stage 1
 
     Returns:
@@ -61,9 +62,7 @@ async def stage2_collect_rankings(
         for label, result in zip(labels, stage1_results)
     ])
 
-    ranking_prompt = f"""You are evaluating different responses to the following question:
-
-Question: {user_query}
+    ranking_prompt_text = f"""You are evaluating different responses to the user's question (which may include images/documents).
 
 Here are the responses from different models (anonymized):
 
@@ -92,10 +91,17 @@ FINAL RANKING:
 
 Now provide your evaluation and ranking:"""
 
-    messages = [{"role": "user", "content": ranking_prompt}]
+    # Construct messages for Stage 2
+    # We include the original user content (images included) followed by the ranking prompt
+    messages = [
+        {"role": "user", "content": user_message_content},
+        {"role": "user", "content": ranking_prompt_text}
+    ]
+    
+    settings = get_settings()
 
     # Get rankings from all council models in parallel
-    responses = await query_models_parallel(COUNCIL_MODELS, messages)
+    responses = await query_models_parallel(settings.council_models, messages)
 
     # Format results
     stage2_results = []
@@ -113,7 +119,7 @@ Now provide your evaluation and ranking:"""
 
 
 async def stage3_synthesize_final(
-    user_query: str,
+    user_message_content: List[Dict[str, Any]],
     stage1_results: List[Dict[str, Any]],
     stage2_results: List[Dict[str, Any]]
 ) -> Dict[str, Any]:
@@ -121,7 +127,7 @@ async def stage3_synthesize_final(
     Stage 3: Chairman synthesizes final response.
 
     Args:
-        user_query: The original user query
+        user_message_content: The original user message content
         stage1_results: Individual model responses from Stage 1
         stage2_results: Rankings from Stage 2
 
@@ -139,9 +145,7 @@ async def stage3_synthesize_final(
         for result in stage2_results
     ])
 
-    chairman_prompt = f"""You are the Chairman of an LLM Council. Multiple AI models have provided responses to a user's question, and then ranked each other's responses.
-
-Original Question: {user_query}
+    chairman_prompt_text = f"""You are the Chairman of an LLM Council. Multiple AI models have provided responses to a user's question (which may include images/documents), and then ranked each other's responses.
 
 STAGE 1 - Individual Responses:
 {stage1_text}
@@ -156,20 +160,27 @@ Your task as Chairman is to synthesize all of this information into a single, co
 
 Provide a clear, well-reasoned final answer that represents the council's collective wisdom:"""
 
-    messages = [{"role": "user", "content": chairman_prompt}]
+    # Construct messages for Stage 3
+    # We include the original user content (images included) followed by the chairman prompt
+    messages = [
+        {"role": "user", "content": user_message_content},
+        {"role": "user", "content": chairman_prompt_text}
+    ]
+    
+    settings = get_settings()
 
     # Query the chairman model
-    response = await query_model(CHAIRMAN_MODEL, messages)
+    response = await query_model(settings.chairman_model, messages)
 
     if response is None:
         # Fallback if chairman fails
         return {
-            "model": CHAIRMAN_MODEL,
+            "model": settings.chairman_model,
             "response": "Error: Unable to generate final synthesis."
         }
 
     return {
-        "model": CHAIRMAN_MODEL,
+        "model": settings.chairman_model,
         "response": response.get('content', '')
     }
 

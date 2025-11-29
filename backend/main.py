@@ -11,7 +11,21 @@ import asyncio
 
 from . import storage
 from . import files
+from .settings import get_settings
 from .council import run_full_council, generate_conversation_title, stage1_collect_responses, stage2_collect_rankings, stage3_synthesize_final, calculate_aggregate_rankings
+
+import logging
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler("backend.log"),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="LLM Council API")
 
@@ -74,21 +88,63 @@ async def create_conversation(request: CreateConversationRequest):
 
 @app.post("/api/upload")
 async def upload_file(file: UploadFile = File(...)):
-    """Upload a file and extract its text content."""
-    # Extract text from file
-    text_content = await files.extract_text_from_file(file)
-    
-    # Create a simple file record (in memory or storage)
-    file_id = str(uuid.uuid4())
-    file_data = {
-        "id": file_id,
-        "filename": file.filename,
-        "content": text_content,
-        "type": file.content_type
-    }
-    storage.save_file(file_id, file_data)
-    
-    return {"id": file_id, "filename": file.filename, "preview": text_content[:100] + "..." if len(text_content) > 100 else text_content}
+    """
+    Upload a file, process it (text/image), and return metadata.
+    """
+    try:
+        # Process file (extract text or prepare image for Vision)
+        processed_data = await files.process_file(file)
+        
+        # Save to storage
+        file_id = str(uuid.uuid4())
+        file_data = {
+            "id": file_id,
+            "filename": file.filename,
+            **processed_data # Merge processed_data (content, type, media_type)
+        }
+        storage.save_file(file_id, file_data)
+        
+        # Create preview
+        preview = ""
+        if processed_data["type"] == "text":
+            preview = processed_data["content"][:100] + "..." if len(processed_data["content"]) > 100 else processed_data["content"]
+        elif processed_data["type"] == "image":
+            preview = "[Image ready for Vision]"
+        elif processed_data["type"] == "mixed":
+            preview = "[PDF/Document ready for Vision]"
+            
+        return {
+            "id": file_id,
+            "filename": file.filename,
+            "preview": preview
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/settings")
+async def get_settings_endpoint():
+    """Get current settings."""
+    return get_settings().to_dict()
+
+
+class UpdateSettingsRequest(BaseModel):
+    """Request to update settings."""
+    openrouter_api_key: Optional[str] = None
+    council_models: Optional[List[str]] = None
+    chairman_model: Optional[str] = None
+
+
+@app.post("/api/settings")
+async def update_settings_endpoint(request: UpdateSettingsRequest):
+    """Update settings."""
+    try:
+        settings = get_settings()
+        update_data = request.dict(exclude_unset=True)
+        settings.update(update_data)
+        return settings.to_dict()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/api/conversations/{conversation_id}", response_model=Conversation)
@@ -98,6 +154,31 @@ async def get_conversation(conversation_id: str):
     if conversation is None:
         raise HTTPException(status_code=404, detail="Conversation not found")
     return conversation
+
+
+class UpdateConversationRequest(BaseModel):
+    """Request to update a conversation."""
+    title: str
+
+
+@app.patch("/api/conversations/{conversation_id}")
+async def update_conversation(conversation_id: str, request: UpdateConversationRequest):
+    """Update a conversation (e.g. title)."""
+    try:
+        storage.update_conversation_title(conversation_id, request.title)
+        return {"status": "success", "id": conversation_id, "title": request.title}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.delete("/api/conversations/{conversation_id}")
+async def delete_conversation(conversation_id: str):
+    """Delete a conversation."""
+    try:
+        storage.delete_conversation(conversation_id)
+        return {"status": "success", "id": conversation_id}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
 @app.post("/api/conversations/{conversation_id}/message")
@@ -174,45 +255,85 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest)
         try:
             # Process files if any
             full_content = request.content
-            if request.file_ids:
-                file_contexts = []
-                for file_id in request.file_ids:
-                    file_data = storage.get_file(file_id)
-                    if file_data:
-                        file_contexts.append(f"--- File: {file_data['filename']} ---\n{file_data['content']}\n--- End of File ---")
-                
-                if file_contexts:
-                    full_content = f"{request.content}\n\n" + "\n\n".join(file_contexts)
-
-            # Add user message
-            storage.add_user_message(conversation_id, full_content)
-
-            # Start title generation in parallel (don't await yet)
+            
+            # 1. Start title generation in parallel (don't await yet)
             title_task = None
             if is_first_message:
                 title_task = asyncio.create_task(generate_conversation_title(request.content)) # Use original content for title
 
+            # 2. Process files and build context
+            message_content = []
+            
+            # Add user text first
+            if request.content:
+                message_content.append({
+                    "type": "text",
+                    "text": request.content
+                })
+
+            if request.file_ids:
+                print(f"Processing {len(request.file_ids)} files for stream...")
+                for file_id in request.file_ids:
+                    file_data = storage.get_file(file_id)
+                    if file_data:
+                        # Process file content based on type
+                        if file_data.get("type") == "image":
+                            # Image content
+                            message_content.append({
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:{file_data.get('media_type', 'image/jpeg')};base64,{file_data['content']}"
+                                }
+                            })
+                            message_content.append({
+                                "type": "text",
+                                "text": f"\n[Attached Image: {file_data['filename']}]"
+                            })
+                        elif file_data.get("type") == "mixed":
+                            # Mixed content (e.g. PDF pages as images)
+                            message_content.append({
+                                "type": "text",
+                                "text": f"\n[Attached Document: {file_data['filename']}]"
+                            })
+                            # Add all mixed content items (images/text)
+                            if isinstance(file_data['content'], list):
+                                message_content.extend(file_data['content'])
+                        else:
+                            # Text content
+                            text_content = file_data.get("content", "")
+                            message_content.append({
+                                "type": "text",
+                                "text": f"\n\n--- File: {file_data['filename']} ---\n{text_content}\n--- End of File ---"
+                            })
+
+            # Add user message to storage (simplified for now, actual multimodal storage would be more complex)
+            stored_user_content = request.content
+            if request.file_ids:
+                stored_user_content += f" [Attached {len(request.file_ids)} files]"
+            storage.add_user_message(conversation_id, stored_user_content)
+
+            # 3. Run the council process
             # Stage 1: Collect responses
-            yield f"data: {json.dumps({'type': 'stage1_start'})}\n\n"
-            stage1_results = await stage1_collect_responses(full_content)
-            yield f"data: {json.dumps({'type': 'stage1_complete', 'data': stage1_results})}\n\n"
+            yield f"data: {json.dumps({'type': 'stage1_start', 'status': 'collecting_responses'})}\n\n"
+            stage1_results = await stage1_collect_responses(message_content)
+            yield f"data: {json.dumps({'type': 'stage1_complete', 'results': stage1_results})}\n\n"
 
             # Stage 2: Collect rankings
-            yield f"data: {json.dumps({'type': 'stage2_start'})}\n\n"
-            stage2_results, label_to_model = await stage2_collect_rankings(full_content, stage1_results)
+            yield f"data: {json.dumps({'type': 'stage2_start', 'status': 'ranking_responses'})}\n\n"
+            stage2_results, label_to_model = await stage2_collect_rankings(message_content, stage1_results)
             aggregate_rankings = calculate_aggregate_rankings(stage2_results, label_to_model)
-            yield f"data: {json.dumps({'type': 'stage2_complete', 'data': stage2_results, 'metadata': {'label_to_model': label_to_model, 'aggregate_rankings': aggregate_rankings}})}\n\n"
+            yield f"data: {json.dumps({'type': 'stage2_complete', 'results': stage2_results, 'aggregate': aggregate_rankings})}\n\n"
 
             # Stage 3: Synthesize final answer
-            yield f"data: {json.dumps({'type': 'stage3_start'})}\n\n"
-            stage3_result = await stage3_synthesize_final(full_content, stage1_results, stage2_results)
-            yield f"data: {json.dumps({'type': 'stage3_complete', 'data': stage3_result})}\n\n"
+            yield f"data: {json.dumps({'type': 'stage3_start', 'status': 'synthesizing_final'})}\n\n"
+            stage3_result = await stage3_synthesize_final(message_content, stage1_results, stage2_results)
+            yield f"data: {json.dumps({'type': 'stage3_complete', 'result': stage3_result})}\n\n"
 
             # Wait for title generation if it was started
             if title_task:
                 title = await title_task
                 storage.update_conversation_title(conversation_id, title)
-                yield f"data: {json.dumps({'type': 'title_complete', 'data': {'title': title}})}\n\n"
+                yield f"data: {json.dumps({'type': 'title_complete', 'title': title})}\n\n"
 
             # Save complete assistant message
             storage.add_assistant_message(
@@ -226,6 +347,8 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest)
             yield f"data: {json.dumps({'type': 'complete'})}\n\n"
 
         except Exception as e:
+            # Log the full exception
+            logger.error(f"Error in event_generator: {str(e)}", exc_info=True)
             # Send error event
             yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
 

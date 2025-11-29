@@ -98,15 +98,20 @@ export const api = {
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
+    let buffer = '';
 
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
 
-      const chunk = decoder.decode(value);
-      const lines = chunk.split('\n');
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+
+      // Keep the last line in the buffer as it might be incomplete
+      buffer = lines.pop();
 
       for (const line of lines) {
+        if (line.trim() === '') continue;
         if (line.startsWith('data: ')) {
           const data = line.slice(6);
           try {
@@ -118,5 +123,62 @@ export const api = {
         }
       }
     }
+  },
+
+  /**
+   * Delete a conversation.
+   */
+  async deleteConversation(conversationId) {
+    const response = await fetch(`${API_BASE}/api/conversations/${conversationId}`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) {
+      throw new Error('Failed to delete conversation');
+    }
+    return response.json();
+  },
+
+  /**
+   * Update conversation title.
+   */
+  async updateConversationTitle(conversationId, title) {
+    const response = await fetch(`${API_BASE}/api/conversations/${conversationId}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ title }),
+    });
+    if (!response.ok) {
+      throw new Error('Failed to update conversation title');
+    }
+    return response.json();
+  },
+  /**
+   * Get settings.
+   */
+  async getSettings() {
+    const response = await fetch(`${API_BASE}/api/settings`);
+    if (!response.ok) {
+      throw new Error('Failed to get settings');
+    }
+    return response.json();
+  },
+
+  /**
+   * Update settings.
+   */
+  async updateSettings(settings) {
+    const response = await fetch(`${API_BASE}/api/settings`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(settings),
+    });
+    if (!response.ok) {
+      throw new Error('Failed to update settings');
+    }
+    return response.json();
   },
 };

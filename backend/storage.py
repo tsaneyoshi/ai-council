@@ -5,7 +5,10 @@ import os
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 from pathlib import Path
+import logging
 from .config import DATA_DIR
+
+logger = logging.getLogger(__name__)
 
 
 def ensure_data_dir():
@@ -89,7 +92,7 @@ def list_conversations() -> List[Dict[str, Any]]:
 
     conversations = []
     for filename in os.listdir(DATA_DIR):
-        if filename.endswith('.json'):
+        if filename.endswith('.json') and filename != "settings.json" and not filename.startswith("file_"):
             path = os.path.join(DATA_DIR, filename)
             with open(path, 'r') as f:
                 data = json.load(f)
@@ -124,6 +127,7 @@ def add_user_message(conversation_id: str, content: str):
         "content": content
     })
 
+    logger.info(f"DEBUG: Saving user message to {conversation_id}. Total messages: {len(conversation['messages'])}")
     save_conversation(conversation)
 
 
@@ -153,6 +157,7 @@ def add_assistant_message(
         "stage3": stage3
     })
 
+    logger.info(f"DEBUG: Saving assistant message to {conversation_id}. Total messages: {len(conversation['messages'])}")
     save_conversation(conversation)
 
 
@@ -170,6 +175,20 @@ def update_conversation_title(conversation_id: str, title: str):
 
     conversation["title"] = title
     save_conversation(conversation)
+
+
+def delete_conversation(conversation_id: str):
+    """
+    Delete a conversation.
+
+    Args:
+        conversation_id: Conversation identifier
+    """
+    path = get_conversation_path(conversation_id)
+    if os.path.exists(path):
+        os.remove(path)
+    else:
+        raise ValueError(f"Conversation {conversation_id} not found")
 
 
 def get_file_path(file_id: str) -> str:
