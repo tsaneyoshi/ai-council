@@ -2,12 +2,13 @@
 
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, Response
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 import uuid
 import json
 import asyncio
+import base64
 
 from . import storage
 from . import files
@@ -92,6 +93,13 @@ async def upload_file(file: UploadFile = File(...)):
     Upload a file, process it (text/image), and return metadata.
     """
     try:
+        # Read content for storage (to allow download later)
+        original_content = await file.read()
+        original_base64 = base64.b64encode(original_content).decode('utf-8')
+        
+        # Reset cursor for processing
+        await file.seek(0)
+
         # Process file (extract text or prepare image for Vision)
         processed_data = await files.process_file(file)
         
@@ -100,6 +108,7 @@ async def upload_file(file: UploadFile = File(...)):
         file_data = {
             "id": file_id,
             "filename": file.filename,
+            "original_content": original_base64,
             **processed_data # Merge processed_data (content, type, media_type)
         }
         storage.save_file(file_id, file_data)
@@ -118,6 +127,35 @@ async def upload_file(file: UploadFile = File(...)):
             "filename": file.filename,
             "preview": preview
         }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/files/{file_id}/download")
+async def download_file(file_id: str):
+    """Download a file."""
+    file_data = storage.get_file(file_id)
+    if not file_data:
+        raise HTTPException(status_code=404, detail="File not found")
+    
+    if "original_content" not in file_data:
+        raise HTTPException(status_code=400, detail="Original content not available for this file")
+        
+    try:
+        # Decode base64 content
+        content_bytes = base64.b64decode(file_data["original_content"])
+        
+        # Determine media type (fallback to application/octet-stream)
+        media_type = file_data.get("media_type", "application/octet-stream")
+        
+        # Return as downloadable file
+        return Response(
+            content=content_bytes,
+            media_type=media_type,
+            headers={
+                "Content-Disposition": f'attachment; filename="{file_data["filename"]}"'
+            }
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -207,8 +245,16 @@ async def send_message(conversation_id: str, request: SendMessageRequest):
         if file_contexts:
             full_content = f"{request.content}\n\n" + "\n\n".join(file_contexts)
 
+    # Prepare file metadata
+    files_meta = []
+    if request.file_ids:
+        for file_id in request.file_ids:
+            file_data = storage.get_file(file_id)
+            if file_data:
+                files_meta.append({"id": file_id, "name": file_data['filename']})
+
     # Add user message
-    storage.add_user_message(conversation_id, full_content)
+    storage.add_user_message(conversation_id, full_content, files_meta)
 
     # If this is the first message, generate a title
     if is_first_message:
@@ -308,9 +354,14 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest)
 
             # Add user message to storage (simplified for now, actual multimodal storage would be more complex)
             stored_user_content = request.content
+            files_meta = []
             if request.file_ids:
-                stored_user_content += f" [Attached {len(request.file_ids)} files]"
-            storage.add_user_message(conversation_id, stored_user_content)
+                for file_id in request.file_ids:
+                    file_data = storage.get_file(file_id)
+                    if file_data:
+                        files_meta.append({"id": file_id, "name": file_data['filename']})
+                
+            storage.add_user_message(conversation_id, stored_user_content, files_meta)
 
             # 3. Run the council process
             # Stage 1: Collect responses

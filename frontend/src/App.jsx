@@ -112,13 +112,18 @@ function App() {
     }
   };
 
-  const handleSendMessage = async (content, fileIds = []) => {
+  const handleSendMessage = async (content, files = []) => {
     if (!currentConversationId) return;
 
     setIsLoading(true);
     try {
       // Optimistically add user message to UI
-      const userMessage = { role: 'user', content };
+      const userMessage = {
+        role: 'user',
+        content,
+        files: files.map(f => ({ id: f.id, name: f.filename }))
+      };
+
       setCurrentConversation((prev) => ({
         ...prev,
         messages: [...prev.messages, userMessage],
@@ -145,6 +150,7 @@ function App() {
       }));
 
       // Send message with streaming
+      const fileIds = files.map(f => f.id);
       await api.sendMessageStream(currentConversationId, content, fileIds, (eventType, event) => {
         switch (eventType) {
           case 'stage1_start':

@@ -224,3 +224,49 @@
   background: #ccc;
   border-color: #ccc;
 }
+
+/* File Attachments in Messages */
+.message-files {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.file-attachment-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background-color: #ffffff;
+  border: 1px solid #d0e7ff;
+  border-radius: 6px;
+  text-decoration: none;
+  color: #333;
+  font-size: 0.9em;
+  transition: all 0.2s;
+}
+
+.file-attachment-link:hover {
+  background-color: #e6f3ff;
+  border-color: #4a90e2;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.file-icon {
+  font-size: 1.1em;
+}
+
+.file-name {
+  font-weight: 500;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.download-icon {
+  color: #4a90e2;
+  font-size: 0.9em;
+}

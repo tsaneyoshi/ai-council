@@ -70,7 +70,7 @@ export default function ChatInterface({
   const handleSubmit = (e) => {
     e.preventDefault();
     if ((input.trim() || selectedFiles.length > 0) && !isLoading && !isUploading) {
-      onSendMessage(input, selectedFiles.map(f => f.id));
+      onSendMessage(input, selectedFiles);
       setInput('');
       setSelectedFiles([]);
     }
@@ -113,6 +113,24 @@ export default function ChatInterface({
                     <div className="markdown-content">
                       <ReactMarkdown>{msg.content}</ReactMarkdown>
                     </div>
+                    {msg.files && msg.files.length > 0 && (
+                      <div className="message-files">
+                        {msg.files.map((file, i) => (
+                          <a
+                            key={i}
+                            href={`http://localhost:8001/api/files/${file.id}/download`}
+                            className="file-attachment-link"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            download
+                          >
+                            <span className="file-icon">📎</span>
+                            <span className="file-name">{file.name}</span>
+                            <span className="download-icon">⬇️</span>
+                          </a>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               ) : (
@@ -193,7 +211,7 @@ export default function ChatInterface({
               ref={fileInputRef}
               onChange={handleFileSelect}
               style={{ display: 'none' }}
-              accept=".txt,.csv,.png,.jpg,.jpeg,.py,.pdf,.docx,.xml,.pptx"
+              accept=".txt,.csv,.png,.jpg,.jpeg,.py,.pdf,.docx,.xml,.pptx,.xlsx,.xls"
             />
             <button
               type="button"

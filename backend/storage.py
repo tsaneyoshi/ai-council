@@ -110,22 +110,28 @@ def list_conversations() -> List[Dict[str, Any]]:
     return conversations
 
 
-def add_user_message(conversation_id: str, content: str):
+def add_user_message(conversation_id: str, content: str, files: Optional[List[Dict[str, str]]] = None):
     """
     Add a user message to a conversation.
 
     Args:
         conversation_id: Conversation identifier
         content: User message content
+        files: Optional list of file metadata (id, name) attached to the message
     """
     conversation = get_conversation(conversation_id)
     if conversation is None:
         raise ValueError(f"Conversation {conversation_id} not found")
 
-    conversation["messages"].append({
+    message = {
         "role": "user",
         "content": content
-    })
+    }
+    
+    if files:
+        message["files"] = files
+
+    conversation["messages"].append(message)
 
     logger.info(f"DEBUG: Saving user message to {conversation_id}. Total messages: {len(conversation['messages'])}")
     save_conversation(conversation)
@@ -179,11 +185,25 @@ def update_conversation_title(conversation_id: str, title: str):
 
 def delete_conversation(conversation_id: str):
     """
-    Delete a conversation.
+    Delete a conversation and its associated files.
 
     Args:
         conversation_id: Conversation identifier
     """
+    # First, load conversation to find associated files
+    conversation = get_conversation(conversation_id)
+    if conversation:
+        # Delete associated files
+        for msg in conversation.get("messages", []):
+            # Check for new 'files' format
+            if "files" in msg:
+                for file_info in msg["files"]:
+                    delete_file(file_info["id"])
+            # Check for old 'file_ids' format (backward compatibility)
+            elif "file_ids" in msg:
+                for file_id in msg["file_ids"]:
+                    delete_file(file_id)
+
     path = get_conversation_path(conversation_id)
     if os.path.exists(path):
         os.remove(path)
@@ -228,3 +248,15 @@ def get_file(file_id: str) -> Optional[Dict[str, Any]]:
 
     with open(path, 'r') as f:
         return json.load(f)
+
+
+def delete_file(file_id: str):
+    """
+    Delete a file record.
+
+    Args:
+        file_id: Unique identifier for the file
+    """
+    path = get_file_path(file_id)
+    if os.path.exists(path):
+        os.remove(path)

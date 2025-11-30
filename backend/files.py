@@ -11,7 +11,9 @@ except ImportError:
 
 try:
     import pypdf
-except ImportError:
+    print("DEBUG: pypdf imported successfully")
+except ImportError as e:
+    print(f"DEBUG: pypdf import failed: {e}")
     pypdf = None
 
 try:
@@ -23,10 +25,19 @@ try:
     import pytesseract
     from pdf2image import convert_from_bytes
     from PIL import Image
-except ImportError:
+    print("DEBUG: pdf2image/PIL imported successfully")
+except ImportError as e:
+    print(f"DEBUG: pdf2image/PIL import failed: {e}")
     pytesseract = None
     convert_from_bytes = None
     Image = None
+
+try:
+    import openpyxl
+    print("DEBUG: openpyxl imported successfully")
+except ImportError as e:
+    print(f"DEBUG: openpyxl import failed: {e}")
+    openpyxl = None
 
 
 import base64
@@ -70,6 +81,34 @@ async def process_file(file: UploadFile) -> Dict[str, Any]:
             result["content"] = "\n".join([",".join(row) for row in rows])
         except Exception as e:
             result["content"] = f"Error reading CSV: {str(e)}"
+
+    elif filename.endswith('.xlsx') or filename.endswith('.xls'):
+        # Excel files
+        if openpyxl:
+            try:
+                excel_file = io.BytesIO(content)
+                wb = openpyxl.load_workbook(excel_file, data_only=True)
+                sheets_text = []
+                
+                for sheet_name in wb.sheetnames:
+                    sheet = wb[sheet_name]
+                    sheet_content = [f"--- Sheet: {sheet_name} ---"]
+                    
+                    # Iterate through rows
+                    for row in sheet.iter_rows(values_only=True):
+                        # Filter out None values and convert to string
+                        row_text = [str(cell) if cell is not None else "" for cell in row]
+                        # Only add non-empty rows
+                        if any(row_text):
+                            sheet_content.append(",".join(row_text))
+                            
+                    sheets_text.append("\n".join(sheet_content))
+                    
+                result["content"] = "\n\n".join(sheets_text)
+            except Exception as e:
+                result["content"] = f"Error reading Excel: {str(e)}"
+        else:
+            result["content"] = "Excel support not available (openpyxl not installed)"
             
     elif filename.endswith('.pdf'):
         # PDF files - Hybrid approach
