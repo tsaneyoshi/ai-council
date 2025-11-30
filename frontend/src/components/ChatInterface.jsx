@@ -16,15 +16,31 @@ export default function ChatInterface({
   const [isComposing, setIsComposing] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [prevConversationId, setPrevConversationId] = useState(null);
   const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  const scrollToTop = () => {
+    messagesContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Scroll to top when conversation changes, scroll to bottom when messages are added
   useEffect(() => {
-    scrollToBottom();
+    if (conversation) {
+      // Check if conversation ID changed (user switched conversations)
+      if (prevConversationId !== conversation.id) {
+        setPrevConversationId(conversation.id);
+        scrollToTop();
+      } else {
+        // Same conversation, new message added
+        scrollToBottom();
+      }
+    }
   }, [conversation]);
 
   const handleFileSelect = async (e) => {
@@ -97,7 +113,7 @@ export default function ChatInterface({
 
   return (
     <div className="chat-interface">
-      <div className="messages-container">
+      <div className="messages-container" ref={messagesContainerRef}>
         {conversation.messages.length === 0 ? (
           <div className="empty-state">
             <h2>Start a conversation</h2>
