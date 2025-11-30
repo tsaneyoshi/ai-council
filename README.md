@@ -48,13 +48,27 @@ cd ..
 
 ### 2. Configure API Key
 
+You have two options to configure your OpenRouter API key:
+
+**Option 1: Using `.env` file (Recommended for development)**
+
 Create a `.env` file in the project root:
 
 ```bash
 OPENROUTER_API_KEY=sk-or-v1-...
 ```
 
+**Option 2: Using the Settings UI**
+
+You can also configure the API key after starting the application:
+1. Start the application (see "Running the Application" below)
+2. Click the ⚙️ Settings button in the top-right corner
+3. Enter your OpenRouter API key
+4. Click "Save Changes"
+
 Get your API key at [openrouter.ai](https://openrouter.ai/). Make sure to purchase the credits you need, or sign up for automatic top up.
+
+> **Note:** The application will start without an API key, but you won't be able to send messages until you configure one using either method above.
 
 ### 3. Configure Models (Optional)
 
