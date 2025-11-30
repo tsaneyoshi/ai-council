@@ -1,8 +1,22 @@
-# LLM Council
+# AI Council
 
 ![llmcouncil](header.jpg)
 
-The idea of this repo is that instead of asking a question to your favorite LLM provider (e.g. OpenAI GPT 5.1, Google Gemini 3.0 Pro, Anthropic Claude Sonnet 4.5, xAI Grok 4, eg.c), you can group them into your "LLM Council". This repo is a simple, local web app that essentially looks like ChatGPT except it uses OpenRouter to send your query to multiple LLMs, it then asks them to review and rank each other's work, and finally a Chairman LLM produces the final response.
+> **Note:** This project is a fork of [karpathy/llm-council](https://github.com/karpathy/llm-council), enhanced with file handling capabilities, UI refinements, and additional features.
+
+The idea of this repo is that instead of asking a question to your favorite LLM provider (e.g. OpenAI GPT 5.1, Google Gemini 3.0 Pro, Anthropic Claude Sonnet 4.5, xAI Grok 4, eg.c), you can group them into your "AI Council". This repo is a simple, local web app that essentially looks like ChatGPT except it uses OpenRouter to send your query to multiple LLMs, it then asks them to review and rank each other's work, and finally a Chairman LLM produces the final response.
+
+## Enhanced Features in AI Council
+
+This fork adds several powerful features to the original LLM Council:
+
+- **File Attachments & Download**: Upload PDFs, Excel files, and images. Files are processed and their content is fed to the LLMs. You can also download the original files directly from the chat.
+- **Excel Support**: Native support for `.xlsx` and `.xls` files.
+- **Auto-Cleanup**: Automatically deletes associated files when a conversation is deleted to save space.
+- **Refined UI**: A polished, Google-style minimalist interface with improved colors and typography.
+- **Smart Scrolling**: Improved scroll behavior when switching conversations.
+
+## Original Description
 
 In a bit more detail, here is what happens when you submit a query:
 
@@ -10,7 +24,7 @@ In a bit more detail, here is what happens when you submit a query:
 2. **Stage 2: Review**. Each individual LLM is given the responses of the other LLMs. Under the hood, the LLM identities are anonymized so that the LLM can't play favorites when judging their outputs. The LLM is asked to rank them in accuracy and insight.
 3. **Stage 3: Final response**. The designated Chairman of the LLM Council takes all of the model's responses and compiles them into a single final answer that is presented to the user.
 
-## Vibe Code Alert
+## Vibe Code Alert (Original)
 
 This project was 99% vibe coded as a fun Saturday hack because I wanted to explore and evaluate a number of LLMs side by side in the process of [reading books together with LLMs](https://x.com/karpathy/status/1990577951671509438). It's nice and useful to see multiple responses side by side, and also the cross-opinions of all LLMs on each other's outputs. I'm not going to support it in any way, it's provided here as is for other people's inspiration and I don't intend to improve it. Code is ephemeral now and libraries are over, ask your LLM to change it in whatever way you like.
 
