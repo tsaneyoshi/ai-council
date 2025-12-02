@@ -171,6 +171,7 @@ class UpdateSettingsRequest(BaseModel):
     openrouter_api_key: Optional[str] = None
     council_models: Optional[List[str]] = None
     chairman_model: Optional[str] = None
+    organization_name: Optional[str] = None
 
 
 @app.post("/api/settings")
@@ -267,11 +268,13 @@ async def send_message(conversation_id: str, request: SendMessageRequest):
     )
 
     # Add assistant message with all stages
+    # Add assistant message with all stages
     storage.add_assistant_message(
         conversation_id,
         stage1_results,
         stage2_results,
-        stage3_result
+        stage3_result,
+        metadata
     )
 
     # Return the complete response with metadata
@@ -387,11 +390,17 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest)
                 yield f"data: {json.dumps({'type': 'title_complete', 'title': title})}\n\n"
 
             # Save complete assistant message
+            # Save complete assistant message
+            metadata = {
+                "label_to_model": label_to_model,
+                "aggregate_rankings": aggregate_rankings
+            }
             storage.add_assistant_message(
                 conversation_id,
                 stage1_results,
                 stage2_results,
-                stage3_result
+                stage3_result,
+                metadata
             )
 
             # Send completion event

@@ -12,6 +12,7 @@ class Settings:
         self.openrouter_api_key: Optional[str] = os.getenv("OPENROUTER_API_KEY")
         self.council_models: List[str] = DEFAULT_COUNCIL_MODELS
         self.chairman_model: str = DEFAULT_CHAIRMAN_MODEL
+        self.organization_name: str = "守谷市"
         self.load()
 
     def load(self):
@@ -23,6 +24,7 @@ class Settings:
                     self.openrouter_api_key = data.get("openrouter_api_key", self.openrouter_api_key)
                     self.council_models = data.get("council_models", self.council_models)
                     self.chairman_model = data.get("chairman_model", self.chairman_model)
+                    self.organization_name = data.get("organization_name", self.organization_name)
             except Exception as e:
                 print(f"Error loading settings: {e}")
 
@@ -34,7 +36,8 @@ class Settings:
         data = {
             "openrouter_api_key": self.openrouter_api_key,
             "council_models": self.council_models,
-            "chairman_model": self.chairman_model
+            "chairman_model": self.chairman_model,
+            "organization_name": self.organization_name
         }
         try:
             with open(SETTINGS_FILE, 'w') as f:
@@ -56,6 +59,7 @@ class Settings:
                                                            # But user wants to edit it. Let's send it for now as this is a local app.
             "council_models": self.council_models,
             "chairman_model": self.chairman_model,
+            "organization_name": self.organization_name,
             "available_models": AVAILABLE_MODELS
         }
 
@@ -67,6 +71,8 @@ class Settings:
             self.council_models = data["council_models"]
         if "chairman_model" in data:
             self.chairman_model = data["chairman_model"]
+        if "organization_name" in data:
+            self.organization_name = data["organization_name"]
         self.save()
 
 # Global settings instance

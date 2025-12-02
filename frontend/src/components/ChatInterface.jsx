@@ -11,6 +11,7 @@ export default function ChatInterface({
   conversation,
   onSendMessage,
   isLoading,
+  settings,
 }) {
   const [input, setInput] = useState('');
   const [isComposing, setIsComposing] = useState(false);
@@ -100,12 +101,13 @@ export default function ChatInterface({
     }
   };
 
+  const organizationName = settings?.organization_name || '';
+
   if (!conversation) {
     return (
       <div className="chat-interface">
         <div className="empty-state">
-          <h2>Welcome to LLM Council</h2>
-          <p>Create a new conversation to get started</p>
+          <h2>ようこそ、{organizationName}AI審議会へ</h2>
         </div>
       </div>
     );
@@ -116,8 +118,7 @@ export default function ChatInterface({
       <div className="messages-container" ref={messagesContainerRef}>
         {conversation.messages.length === 0 ? (
           <div className="empty-state">
-            <h2>Start a conversation</h2>
-            <p>Ask a question to consult the LLM Council</p>
+            <h2>Ask</h2>
           </div>
         ) : (
           conversation.messages.map((msg, index) => (
@@ -151,13 +152,13 @@ export default function ChatInterface({
                 </div>
               ) : (
                 <div className="assistant-message">
-                  <div className="message-label">LLM Council</div>
+                  <div className="message-label">AI Council</div>
 
                   {/* Stage 1 */}
                   {msg.loading?.stage1 && (
                     <div className="stage-loading">
                       <div className="spinner"></div>
-                      <span>Running Stage 1: Collecting individual responses...</span>
+                      <span>Running Stage 1: Collecting responses...</span>
                     </div>
                   )}
                   {msg.stage1 && <Stage1 responses={msg.stage1} />}

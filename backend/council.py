@@ -62,34 +62,34 @@ async def stage2_collect_rankings(
         for label, result in zip(labels, stage1_results)
     ])
 
-    ranking_prompt_text = f"""You are evaluating different responses to the user's question (which may include images/documents).
+    ranking_prompt_text = f"""ユーザーの質問（画像やドキュメントを含む場合があります）に対する異なる回答を評価してください。
 
-Here are the responses from different models (anonymized):
+以下は、異なるモデルからの回答（匿名化されています）です：
 
 {responses_text}
 
-Your task:
-1. First, evaluate each response individually. For each response, explain what it does well and what it does poorly.
-2. Then, at the very end of your response, provide a final ranking.
+あなたのタスク：
+1. まず、各回答を個別に評価してください。各回答について、優れている点と不足している点を説明してください。
+2. 次に、回答の最後に最終ランキングを提供してください。
 
-IMPORTANT: Your final ranking MUST be formatted EXACTLY as follows:
-- Start with the line "FINAL RANKING:" (all caps, with colon)
-- Then list the responses from best to worst as a numbered list
-- Each line should be: number, period, space, then ONLY the response label (e.g., "1. Response A")
-- Do not add any other text or explanations in the ranking section
+重要：最終ランキングは、以下の形式で正確に記述する必要があります：
+- 「FINAL RANKING:」という行から始めてください（すべて大文字、コロン付き）
+- 次に、最良から最悪の順に回答を番号付きリストとして列挙してください
+- 各行は、番号、ピリオド、スペース、そして回答ラベルのみ（例：「1. Response A」）
+- ランキングセクションには、他のテキストや説明を追加しないでください
 
-Example of the correct format for your ENTIRE response:
+回答全体の正しい形式の例：
 
-Response A provides good detail on X but misses Y...
-Response B is accurate but lacks depth on Z...
-Response C offers the most comprehensive answer...
+Response Aは、Xについて詳細に説明していますが、Yが欠けています...
+Response Bは正確ですが、Zについての深さが不足しています...
+Response Cは最も包括的な回答を提供しています...
 
 FINAL RANKING:
 1. Response C
 2. Response A
 3. Response B
 
-Now provide your evaluation and ranking:"""
+それでは、評価とランキングを提供してください："""
 
     # Construct messages for Stage 2
     # We include the original user content (images included) followed by the ranking prompt

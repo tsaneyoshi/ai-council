@@ -258,11 +258,13 @@ function App() {
         onDeleteConversation={handleDeleteConversation}
         onRenameConversation={handleRenameConversation}
         onOpenSettings={() => setIsSettingsOpen(true)}
+        settings={settings}
       />
       <ChatInterface
         conversation={currentConversation}
         onSendMessage={handleSendMessage}
         isLoading={isLoading}
+        settings={settings}
       />
       <SettingsModal
         isOpen={isSettingsOpen}

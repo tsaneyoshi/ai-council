@@ -9,6 +9,7 @@ export default function Sidebar({
   onDeleteConversation,
   onRenameConversation,
   onOpenSettings,
+  settings,
 }) {
   const [editingId, setEditingId] = useState(null);
   const [editTitle, setEditTitle] = useState('');
@@ -40,12 +41,14 @@ export default function Sidebar({
     }
   };
 
+  const organizationName = settings?.organization_name || '';
+
   return (
     <div className="sidebar">
       <div className="sidebar-header">
-        <h1>LLM Council</h1>
+        <h1>{organizationName}AI審議会</h1>
         <button className="new-conversation-btn" onClick={onNewConversation}>
-          + New Conversation
+          <strong>+ New</strong>
         </button>
       </div>
 

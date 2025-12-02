@@ -14,13 +14,11 @@ AVAILABLE_MODELS = [
     "google/gemini-3-pro-preview",
     "anthropic/claude-opus-4.5",
     "x-ai/grok-4.1-fast:free",
+    "google/gemini-2.5-flash"    
 ]
 
 # Default Council members
 DEFAULT_COUNCIL_MODELS = [
-    "openai/gpt-5.1",
-    "google/gemini-3-pro-preview",
-    "anthropic/claude-opus-4.5",
     "x-ai/grok-4.1-fast:free",
 ]
 

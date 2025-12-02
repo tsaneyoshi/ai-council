@@ -5,6 +5,7 @@ export default function SettingsModal({ isOpen, onClose, settings, onSave }) {
     const [apiKey, setApiKey] = useState('');
     const [councilModels, setCouncilModels] = useState([]);
     const [chairmanModel, setChairmanModel] = useState('');
+    const [organizationName, setOrganizationName] = useState('');
     const [availableModels, setAvailableModels] = useState([]);
 
     useEffect(() => {
@@ -12,6 +13,7 @@ export default function SettingsModal({ isOpen, onClose, settings, onSave }) {
             setApiKey(settings.openrouter_api_key || '');
             setCouncilModels(settings.council_models || []);
             setChairmanModel(settings.chairman_model || '');
+            setOrganizationName(settings.organization_name || '');
             setAvailableModels(settings.available_models || []);
         }
     }, [settings, isOpen]);
@@ -23,6 +25,7 @@ export default function SettingsModal({ isOpen, onClose, settings, onSave }) {
             openrouter_api_key: apiKey,
             council_models: councilModels,
             chairman_model: chairmanModel,
+            organization_name: organizationName,
         });
         onClose();
     };
@@ -46,6 +49,19 @@ export default function SettingsModal({ isOpen, onClose, settings, onSave }) {
                 </div>
 
                 <div className="modal-body">
+                    <div className="form-group">
+                        <label>Organization Name</label>
+                        <input
+                            type="text"
+                            value={organizationName}
+                            onChange={(e) => setOrganizationName(e.target.value)}
+                            placeholder="e.g. 守谷市"
+                        />
+                        <p className="help-text">
+                            The name of the organization (displayed in the title).
+                        </p>
+                    </div>
+
                     <div className="form-group">
                         <label>OpenRouter API Key</label>
                         <input

@@ -2,77 +2,74 @@
 
 ![llmcouncil](header.jpg)
 
-> **Note:** This project is a fork of [karpathy/llm-council](https://github.com/karpathy/llm-council), enhanced with file handling capabilities, UI refinements, and additional features.
+> **注意:** このプロジェクトは [karpathy/llm-council](https://github.com/karpathy/llm-council) のフォークで、ファイル処理機能、UI改善、および追加機能が強化されています。
 
-The idea of this repo is that instead of asking a question to your favorite LLM provider (e.g. OpenAI GPT 5.1, Google Gemini 3.0 Pro, Anthropic Claude Sonnet 4.5, xAI Grok 4, eg.c), you can group them into your "AI Council". This repo is a simple, local web app that essentially looks like ChatGPT except it uses OpenRouter to send your query to multiple LLMs, it then asks them to review and rank each other's work, and finally a Chairman LLM produces the final response.
+このリポジトリのアイデアは、お気に入りのLLMプロバイダー（例：OpenAI GPT 5.1、Google Gemini 3.0 Pro、Anthropic Claude Sonnet 4.5、xAI Grok 4など）に質問する代わりに、それらを「AI審議会」としてグループ化することです。このリポジトリは、ChatGPTのように見えるシンプルなローカルWebアプリですが、OpenRouterを使用して複数のLLMにクエリを送信し、互いの作業をレビューしてランク付けさせ、最後に議長LLMが最終回答を作成します。
 
-## Enhanced Features in AI Council
+## AI Councilの拡張機能
 
-This fork adds several powerful features to the original LLM Council:
+このフォークは、オリジナルのLLM Councilにいくつかの強力な機能を追加しています：
 
-- **File Attachments & Download**: Upload PDFs, Excel files, and images. Files are processed and their content is fed to the LLMs. You can also download the original files directly from the chat.
-- **Excel Support**: Native support for `.xlsx` and `.xls` files.
-- **Auto-Cleanup**: Automatically deletes associated files when a conversation is deleted to save space.
-- **Refined UI**: A polished, Google-style minimalist interface with improved colors and typography.
-- **Smart Scrolling**: Improved scroll behavior when switching conversations.
+- **ファイル添付とダウンロード**: PDF、Excelファイル、画像をアップロードできます。ファイルは処理され、その内容がLLMに送られます。チャットから元のファイルを直接ダウンロードすることもできます。
+- **自動クリーンアップ**: 会話が削除されると、関連するファイルも自動的に削除され、スペースを節約します。
 
-## Original Description
+## オリジナルの説明
 
-In a bit more detail, here is what happens when you submit a query:
+もう少し詳しく説明すると、クエリを送信すると次のようなことが起こります：
 
-1. **Stage 1: First opinions**. The user query is given to all LLMs individually, and the responses are collected. The individual responses are shown in a "tab view", so that the user can inspect them all one by one.
-2. **Stage 2: Review**. Each individual LLM is given the responses of the other LLMs. Under the hood, the LLM identities are anonymized so that the LLM can't play favorites when judging their outputs. The LLM is asked to rank them in accuracy and insight.
-3. **Stage 3: Final response**. The designated Chairman of the LLM Council takes all of the model's responses and compiles them into a single final answer that is presented to the user.
+1. **Stage 1（回答）**: ユーザーのクエリが各LLMに個別に送られ、回答が収集されます。個々の回答は「タブビュー」で表示されるため、ユーザーは1つずつ確認できます。
+2. **Stage 2（レビュー）**: 各LLMには他のLLMの回答が与えられます。内部では、LLMが出力を判断する際に贔屓できないように、LLMの身元は匿名化されています。LLMは、それらを正確さと洞察力でランク付けするよう求められます。
+3. **Stage 3（最終回答）**: AI審議会の指定された議長が、すべてのモデルの回答を受け取り、ユーザーに提示される単一の最終回答にまとめます。
 
-## Vibe Code Alert (Original)
+## Vibe Code Alert（オリジナル）
 
-This project was 99% vibe coded as a fun Saturday hack because I wanted to explore and evaluate a number of LLMs side by side in the process of [reading books together with LLMs](https://x.com/karpathy/status/1990577951671509438). It's nice and useful to see multiple responses side by side, and also the cross-opinions of all LLMs on each other's outputs. I'm not going to support it in any way, it's provided here as is for other people's inspiration and I don't intend to improve it. Code is ephemeral now and libraries are over, ask your LLM to change it in whatever way you like.
+このプロジェクトは、[LLMと一緒に本を読む](https://x.com/karpathy/status/1990577951671509438)過程で、多くのLLMを並べて探索・評価したかったので、楽しい土曜日のハックとして99%バイブコーディングされました。複数の回答を並べて見ることができ、また、互いの出力に対するすべてのLLMの相互意見を見ることができるのは素晴らしく便利です。私はこれをサポートするつもりはなく、他の人々のインスピレーションのためにここで提供されており、改善するつもりはありません。コードは今や儚いものであり、ライブラリは終わりました。LLMに好きなように変更するよう依頼してください。
 
-## Setup
+## セットアップ
 
-### 1. Install Dependencies
+### 1. 依存関係のインストール
 
-The project uses [uv](https://docs.astral.sh/uv/) for project management.
+このプロジェクトは、プロジェクト管理に [uv](https://docs.astral.sh/uv/) を使用しています。
 
-**Backend:**
+**バックエンド:**
 ```bash
 uv sync
 ```
 
-**Frontend:**
+**フロントエンド:**
 ```bash
 cd frontend
 npm install
 cd ..
 ```
 
-### 2. Configure API Key
+### 2. APIキーの設定
 
-You have two options to configure your OpenRouter API key:
+OpenRouter APIキーを設定するには、2つのオプションがあります：
 
-**Option 1: Using `.env` file (Recommended for development)**
+**オプション1: `.env`ファイルを使用（開発に推奨）**
 
-Create a `.env` file in the project root:
+プロジェクトルートに`.env`ファイルを作成します：
 
 ```bash
 OPENROUTER_API_KEY=sk-or-v1-...
 ```
 
-**Option 2: Using the Settings UI**
+**オプション2: Settings UIを使用**
 
-You can also configure the API key after starting the application:
-1. Start the application (see "Running the Application" below)
-2. Click the ⚙️ Settings button in the top-right corner
-3. Enter your OpenRouter API key
-4. Click "Save Changes"
+アプリケーション起動後にAPIキーを設定することもできます：
+1. アプリケーションを起動します（下記の「アプリケーションの実行」を参照）
+2. 右上の⚙️ Settingsボタンをクリックします
+3. OpenRouter APIキーを入力します
+4. 「Save Changes」をクリックします
 
-Get your API key at [openrouter.ai](https://openrouter.ai/). Make sure to purchase the credits you need, or sign up for automatic top up.
+APIキーは [openrouter.ai](https://openrouter.ai/) で取得できます。必要なクレジットを購入するか、自動チャージにサインアップしてください。
 
-> **Note:** The application will start without an API key, but you won't be able to send messages until you configure one using either method above.
+> **注意:** アプリケーションはAPIキーなしで起動しますが、上記のいずれかの方法で設定するまでメッセージを送信できません。
 
-### 3. Configure Models (Optional)
+### 3. モデルの設定（オプション）
 
-Edit `backend/config.py` to customize the council:
+`backend/config.py`を編集して審議会をカスタマイズします：
 
 ```python
 COUNCIL_MODELS = [
@@ -85,31 +82,31 @@ COUNCIL_MODELS = [
 CHAIRMAN_MODEL = "google/gemini-3-pro-preview"
 ```
 
-## Running the Application
+## アプリケーションの実行
 
-**Option 1: Use the start script**
+**オプション1: 起動スクリプトを使用**
 ```bash
 ./start.sh
 ```
 
-**Option 2: Run manually**
+**オプション2: 手動で実行**
 
-Terminal 1 (Backend):
+ターミナル1（バックエンド）:
 ```bash
 uv run python -m backend.main
 ```
 
-Terminal 2 (Frontend):
+ターミナル2（フロントエンド）:
 ```bash
 cd frontend
 npm run dev
 ```
 
-Then open http://localhost:5173 in your browser.
+その後、ブラウザで http://localhost:5173 を開きます。
 
-## Tech Stack
+## 技術スタック
 
-- **Backend:** FastAPI (Python 3.10+), async httpx, OpenRouter API
-- **Frontend:** React + Vite, react-markdown for rendering
-- **Storage:** JSON files in `data/conversations/`
-- **Package Management:** uv for Python, npm for JavaScript
+- **バックエンド:** FastAPI（Python 3.10+）、async httpx、OpenRouter API
+- **フロントエンド:** React + Vite、react-markdown（レンダリング用）
+- **ストレージ:** `data/conversations/`内のJSONファイル
+- **パッケージ管理:** Python用uv、JavaScript用npm
