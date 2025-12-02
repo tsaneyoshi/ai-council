@@ -101,6 +101,7 @@ export default function SettingsModal({ isOpen, onClose, settings, onSave }) {
                             value={chairmanModel}
                             onChange={(e) => setChairmanModel(e.target.value)}
                         >
+                            <option value="auto">Auto (Use top-ranked model)</option>
                             {availableModels.map((model) => (
                                 <option key={model} value={model}>
                                     {model}
@@ -108,7 +109,7 @@ export default function SettingsModal({ isOpen, onClose, settings, onSave }) {
                             ))}
                         </select>
                         <p className="help-text">
-                            Select the model to synthesize the final response (Stage 3).
+                            Select the model to synthesize the final response (Stage 3). "Auto" uses the top-ranked model from Stage 2.
                         </p>
                     </div>
                 </div>

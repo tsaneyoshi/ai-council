@@ -376,11 +376,24 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest)
             yield f"data: {json.dumps({'type': 'stage2_start', 'status': 'ranking_responses'})}\n\n"
             stage2_results, label_to_model = await stage2_collect_rankings(message_content, stage1_results)
             aggregate_rankings = calculate_aggregate_rankings(stage2_results, label_to_model)
-            yield f"data: {json.dumps({'type': 'stage2_complete', 'results': stage2_results, 'aggregate': aggregate_rankings})}\n\n"
+            yield f"data: {json.dumps({'type': 'stage2_complete', 'results': stage2_results, 'aggregate': aggregate_rankings, 'label_to_model': label_to_model})}\n\n"
+
+            # Determine chairman model
+            settings = get_settings()
+            chairman_model = settings.chairman_model
+            if chairman_model == "auto":
+                # Use the top-ranked model from Our Ranking
+                if aggregate_rankings and len(aggregate_rankings) > 0:
+                    chairman_model = aggregate_rankings[0]['model']
+                    logger.info(f"Auto-selected chairman: {chairman_model} (top-ranked in Stage 2)")
+                else:
+                    # Fallback to first council model if no rankings available
+                    chairman_model = settings.council_models[0] if settings.council_models else "google/gemini-2.5-flash"
+                    logger.info(f"Auto-selected chairman (fallback): {chairman_model}")
 
             # Stage 3: Synthesize final answer
             yield f"data: {json.dumps({'type': 'stage3_start', 'status': 'synthesizing_final'})}\n\n"
-            stage3_result = await stage3_synthesize_final(message_content, stage1_results, stage2_results)
+            stage3_result = await stage3_synthesize_final(message_content, stage1_results, stage2_results, chairman_model=chairman_model)
             yield f"data: {json.dumps({'type': 'stage3_complete', 'result': stage3_result})}\n\n"
 
             # Wait for title generation if it was started

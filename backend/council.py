@@ -121,7 +121,8 @@ FINAL RANKING:
 async def stage3_synthesize_final(
     user_message_content: List[Dict[str, Any]],
     stage1_results: List[Dict[str, Any]],
-    stage2_results: List[Dict[str, Any]]
+    stage2_results: List[Dict[str, Any]],
+    chairman_model: str = None
 ) -> Dict[str, Any]:
     """
     Stage 3: Chairman synthesizes final response.
@@ -130,6 +131,7 @@ async def stage3_synthesize_final(
         user_message_content: The original user message content
         stage1_results: Individual model responses from Stage 1
         stage2_results: Rankings from Stage 2
+        chairman_model: Optional model to use as chairman. If None, uses settings.
 
     Returns:
         Dict with 'model' and 'response' keys
@@ -168,19 +170,23 @@ Provide a clear, well-reasoned final answer that represents the council's collec
     ]
     
     settings = get_settings()
+    
+    # Use provided chairman_model or fall back to settings
+    if chairman_model is None:
+        chairman_model = settings.chairman_model
 
     # Query the chairman model
-    response = await query_model(settings.chairman_model, messages)
+    response = await query_model(chairman_model, messages)
 
     if response is None:
         # Fallback if chairman fails
         return {
-            "model": settings.chairman_model,
+            "model": chairman_model,
             "response": "Error: Unable to generate final synthesis."
         }
 
     return {
-        "model": settings.chairman_model,
+        "model": chairman_model,
         "response": response.get('content', '')
     }
 
@@ -314,6 +320,8 @@ async def run_full_council(user_query: str) -> Tuple[List, List, Dict, Dict]:
     Returns:
         Tuple of (stage1_results, stage2_results, stage3_result, metadata)
     """
+    settings = get_settings()
+    
     # Stage 1: Collect individual responses
     stage1_results = await stage1_collect_responses(user_query)
 
@@ -330,11 +338,24 @@ async def run_full_council(user_query: str) -> Tuple[List, List, Dict, Dict]:
     # Calculate aggregate rankings
     aggregate_rankings = calculate_aggregate_rankings(stage2_results, label_to_model)
 
+    # Determine chairman model
+    chairman_model = settings.chairman_model
+    if chairman_model == "auto":
+        # Use the top-ranked model from Our Ranking
+        if aggregate_rankings and len(aggregate_rankings) > 0:
+            chairman_model = aggregate_rankings[0]['model']
+            print(f"Auto-selected chairman: {chairman_model} (top-ranked in Stage 2)")
+        else:
+            # Fallback to first council model if no rankings available
+            chairman_model = settings.council_models[0] if settings.council_models else "google/gemini-2.5-flash"
+            print(f"Auto-selected chairman (fallback): {chairman_model}")
+
     # Stage 3: Synthesize final answer
     stage3_result = await stage3_synthesize_final(
         user_query,
         stage1_results,
-        stage2_results
+        stage2_results,
+        chairman_model=chairman_model
     )
 
     # Prepare metadata

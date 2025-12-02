@@ -188,6 +188,7 @@ function App() {
               lastMsg.stage2 = event.results;
               lastMsg.metadata = {
                 ...lastMsg.metadata,
+                label_to_model: event.label_to_model,
                 aggregate_rankings: event.aggregate
               };
               lastMsg.loading.stage2 = false;
